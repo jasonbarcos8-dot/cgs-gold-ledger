@@ -128,9 +128,36 @@
   .receipt-actions > *{flex:1;}
 
   @media (max-width:360px){ .line-item-row1{grid-template-columns:1fr;} }
+
+  .lock-overlay{position:fixed; inset:0; background:var(--bg); z-index:100; display:flex; align-items:center; justify-content:center; padding:20px;}
+  .lock-card{background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:28px 24px; max-width:340px; width:100%; text-align:center;}
+  .lock-card .brand-mark{font-size:1.8rem; display:block; margin-bottom:4px;}
+  .lock-card h2{font-family:var(--font-display); font-weight:600; font-size:1.1rem; margin:10px 0 4px;}
+  .lock-card p{font-size:0.82rem; color:var(--ink-dim); margin:0 0 18px; line-height:1.5;}
+  .lock-card input{text-align:center; font-size:1.2rem; letter-spacing:0.2em; margin-bottom:10px;}
+  .lock-error{color:var(--danger); font-size:0.8rem; min-height:18px; margin-bottom:6px;}
 </style>
 </head>
 <body>
+<div class="lock-overlay" id="lockOverlay">
+  <div class="lock-card">
+    <span class="brand-mark">CGS</span>
+    <h2>Staff Passcode</h2>
+    <p>Enter the passcode to open the Gold Ledger on this device. You'll only need to do this once.</p>
+    <input type="password" id="lockInput" inputmode="text" autocomplete="off" placeholder="Passcode">
+    <div class="lock-error" id="lockError"></div>
+    <button class="btn-primary" id="lockSubmitBtn" type="button">Unlock</button>
+  </div>
+</div>
+<script>
+(function(){
+  try{
+    if (localStorage.getItem("cgs_unlocked_v1") === "1"){
+      document.getElementById("lockOverlay").hidden = true;
+    }
+  }catch(e){}
+})();
+</script>
 <div class="app">
   <div class="topbar">
     <div class="brand">
@@ -210,6 +237,15 @@
   // Until then, sync stays queued locally — saving/receipts/history/offline
   // launch all work fully without it.
   var SHEETS_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbyt4hj8ywnJiqOycPHvweThHNTBgnA-yg1aeN3bNPNLTObCJF0V1XCiaqCeZbObAqDXeA/exec";
+  // Sent with every sync so the backend can reject writes that don't come
+  // from this app. Must match SYNC_SECRET in Code.gs exactly.
+  var SYNC_SECRET = "8df7877b00a2930647f38156f1d85d8b";
+
+  // SHA-256 hash of the staff passcode (never the plain passcode itself, so
+  // it isn't readable at a glance in the public source). Until Claude sets
+  // this to a real hash, the lock screen is skipped entirely (fail-open) so
+  // testing isn't blocked.
+  var PASSCODE_HASH = "26e664ff1df2941a63ef1fcd2fc7a38561641cb1017914cebb604add884bf8a8";
 
   var KARATS = ["24K","22K","21K","18K","14K","10K","8K"];
   var STORAGE_KEY = "cgs_transactions_v1";
@@ -503,7 +539,7 @@
     return fetch(SHEETS_WEBAPP_URL, {
       method: "POST",
       headers: {"Content-Type": "text/plain;charset=utf-8"},
-      body: JSON.stringify(txn)
+      body: JSON.stringify({secret: SYNC_SECRET, txn: txn})
     }).then(function(res){
       if (!res.ok) throw new Error("bad status " + res.status);
       return res.json();
@@ -584,6 +620,57 @@
 
   renderLines();
   updateTotals();
+
+  // ---------- staff passcode lock ----------
+  function sha256Hex(message){
+    var enc = new TextEncoder().encode(message);
+    return crypto.subtle.digest("SHA-256", enc).then(function(buf){
+      return Array.prototype.map.call(new Uint8Array(buf), function(b){
+        return ("00" + b.toString(16)).slice(-2);
+      }).join("");
+    });
+  }
+
+  (function initLock(){
+    var overlay = document.getElementById("lockOverlay");
+    if (!overlay) return;
+
+    if (!PASSCODE_HASH || PASSCODE_HASH.indexOf("__PASSCODE_HASH__") === 0){
+      // Not configured yet — don't block usage.
+      overlay.hidden = true;
+      return;
+    }
+    try{
+      if (localStorage.getItem("cgs_unlocked_v1") === "1"){
+        overlay.hidden = true;
+        return;
+      }
+    }catch(e){}
+
+    var input = document.getElementById("lockInput");
+    var error = document.getElementById("lockError");
+    var submitBtn = document.getElementById("lockSubmitBtn");
+
+    function tryUnlock(){
+      var val = input.value;
+      if (!val) return;
+      submitBtn.disabled = true;
+      sha256Hex(val).then(function(hash){
+        submitBtn.disabled = false;
+        if (hash === PASSCODE_HASH){
+          try{ localStorage.setItem("cgs_unlocked_v1", "1"); }catch(e){}
+          overlay.hidden = true;
+        } else {
+          error.textContent = "Incorrect passcode. Try again.";
+          input.value = "";
+          input.focus();
+        }
+      });
+    }
+    submitBtn.addEventListener("click", tryUnlock);
+    input.addEventListener("keydown", function(e){ if (e.key === "Enter") tryUnlock(); });
+    input.focus();
+  })();
 
   // ---------- install as an app + offline launch ----------
   if ("serviceWorker" in navigator){
