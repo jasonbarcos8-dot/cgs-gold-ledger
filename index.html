@@ -66,9 +66,10 @@
   input[type="number"]{font-variant-numeric:tabular-nums;}
 
   .line-item{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:10px;}
-  .line-item-row1{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
-  .line-item-row2{display:flex; align-items:center; gap:10px;}
-  .line-item-row2 .field{flex:1;}
+  .line-item-labels{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;}
+  .line-item-labels span{font-size:0.78rem; font-weight:600; color:var(--ink-dim);}
+  .line-item-inputs{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;}
+  .line-item-footer{display:flex; align-items:center; justify-content:flex-end; gap:10px;}
   .subtotal-box{text-align:right; min-width:0;}
   .subtotal-box .amt{font-variant-numeric:tabular-nums; font-weight:700; font-size:1rem;}
   .subtotal-box .lbl{font-size:0.68rem; color:var(--ink-dim); text-transform:uppercase; letter-spacing:0.06em;}
@@ -127,7 +128,7 @@
   .receipt-actions{display:flex; gap:8px; margin-top:16px;}
   .receipt-actions > *{flex:1;}
 
-  @media (max-width:360px){ .line-item-row1{grid-template-columns:1fr;} }
+  @media (max-width:360px){ .line-item-labels, .line-item-inputs{grid-template-columns:1fr;} }
 
   .lock-overlay{position:fixed; inset:0; background:var(--bg); z-index:100; display:flex; align-items:center; justify-content:center; padding:20px;}
   .lock-card{background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:28px 24px; max-width:340px; width:100%; text-align:center;}
@@ -247,7 +248,7 @@
   // testing isn't blocked.
   var PASSCODE_HASH = "26e664ff1df2941a63ef1fcd2fc7a38561641cb1017914cebb604add884bf8a8";
 
-  var KARATS = ["24K","22K","21K","18K","14K","10K","8K"];
+  var KARATS = ["24K","23K","22K","21K","18K","16K","14K","12K","10K","8K","SIL","PT"];
   var STORAGE_KEY = "cgs_transactions_v1";
   var COUNTER_KEY = "cgs_counter_v1";
 
@@ -330,11 +331,12 @@
   var lines = [];
   function newLine(){
     lineIdCounter++;
-    return {uid:lineIdCounter, karat:"24K", price:"", grams:""};
+    return {uid:lineIdCounter, karat:"", price:"", grams:""};
   }
   lines.push(newLine());
 
   function lineSubtotal(line){
+    if (!line.karat) return 0;
     var p = parseFloat(line.price), g = parseFloat(line.grams);
     if (!isFinite(p) || !isFinite(g) || p <= 0 || g <= 0) return 0;
     return p * g;
@@ -347,55 +349,54 @@
       var row = document.createElement("div");
       row.className = "line-item";
 
-      var row1 = document.createElement("div");
-      row1.className = "line-item-row1";
+      var labelsRow = document.createElement("div");
+      labelsRow.className = "line-item-labels";
+      ["Karat", "Price per gram (₱)", "Grams"].forEach(function(lbl){
+        var s = document.createElement("span");
+        s.textContent = lbl;
+        labelsRow.appendChild(s);
+      });
 
-      var karatField = document.createElement("div");
-      karatField.className = "field";
-      var karatLabel = document.createElement("label");
-      karatLabel.textContent = "Karat";
+      var inputsRow = document.createElement("div");
+      inputsRow.className = "line-item-inputs";
+
       var karatSelect = document.createElement("select");
+      var blankOpt = document.createElement("option");
+      blankOpt.value = ""; blankOpt.textContent = "Select";
+      blankOpt.disabled = true;
+      if (!line.karat) blankOpt.selected = true;
+      karatSelect.appendChild(blankOpt);
       KARATS.forEach(function(k){
         var opt = document.createElement("option");
         opt.value = k; opt.textContent = k;
         if (k === line.karat) opt.selected = true;
         karatSelect.appendChild(opt);
       });
-      karatSelect.addEventListener("change", function(){ line.karat = karatSelect.value; });
-      karatField.appendChild(karatLabel); karatField.appendChild(karatSelect);
+      karatSelect.addEventListener("change", function(){ line.karat = karatSelect.value; updateTotals(); });
 
-      var priceField = document.createElement("div");
-      priceField.className = "field";
-      var priceLabel = document.createElement("label");
-      priceLabel.textContent = "Price per gram (₱)";
       var priceInput = document.createElement("input");
       priceInput.type = "number"; priceInput.inputMode = "decimal"; priceInput.min = "0"; priceInput.step = "0.01";
       priceInput.placeholder = "0.00"; priceInput.value = line.price;
       priceInput.addEventListener("input", function(){ line.price = priceInput.value; updateTotals(); });
-      priceField.appendChild(priceLabel); priceField.appendChild(priceInput);
 
-      row1.appendChild(karatField); row1.appendChild(priceField);
-
-      var row2 = document.createElement("div");
-      row2.className = "line-item-row2";
-
-      var gramsField = document.createElement("div");
-      gramsField.className = "field";
-      var gramsLabel = document.createElement("label");
-      gramsLabel.textContent = "Grams";
       var gramsInput = document.createElement("input");
       gramsInput.type = "number"; gramsInput.inputMode = "decimal"; gramsInput.min = "0"; gramsInput.step = "0.01";
       gramsInput.placeholder = "0.00"; gramsInput.value = line.grams;
       gramsInput.addEventListener("input", function(){ line.grams = gramsInput.value; updateTotals(); });
-      gramsField.appendChild(gramsLabel); gramsField.appendChild(gramsInput);
+
+      inputsRow.appendChild(karatSelect);
+      inputsRow.appendChild(priceInput);
+      inputsRow.appendChild(gramsInput);
+
+      var footer = document.createElement("div");
+      footer.className = "line-item-footer";
 
       var subtotalBox = document.createElement("div");
       subtotalBox.className = "subtotal-box";
       var subLbl = document.createElement("div"); subLbl.className = "lbl"; subLbl.textContent = "Subtotal";
       var subAmt = document.createElement("div"); subAmt.className = "amt"; subAmt.textContent = peso(lineSubtotal(line));
       subtotalBox.appendChild(subLbl); subtotalBox.appendChild(subAmt);
-
-      row2.appendChild(gramsField); row2.appendChild(subtotalBox);
+      footer.appendChild(subtotalBox);
 
       if (lines.length > 1){
         var removeBtn = document.createElement("button");
@@ -405,10 +406,10 @@
           lines = lines.filter(function(l){ return l.uid !== line.uid; });
           renderLines(); updateTotals();
         });
-        row2.appendChild(removeBtn);
+        footer.appendChild(removeBtn);
       }
 
-      row.appendChild(row1); row.appendChild(row2);
+      row.appendChild(labelsRow); row.appendChild(inputsRow); row.appendChild(footer);
       wrap.appendChild(row);
     });
   }
