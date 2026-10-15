@@ -2,7 +2,7 @@
 // Caches the whole app shell on install so the app can be LAUNCHED with zero
 // network connectivity (not just operated offline after it's already open).
 // Bump CACHE_NAME whenever app files change so clients pick up the update.
-var CACHE_NAME = "cgs-ledger-v1";
+var CACHE_NAME = "cgs-ledger-v2";
 var APP_SHELL = [
   "./",
   "./index.html",
