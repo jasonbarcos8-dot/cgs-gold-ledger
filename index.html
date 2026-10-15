@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CGS Gold Ledger</title>
+
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#8F611A">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="./favicon.png">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CGS Ledger">
+
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,900&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+  :root{
+    --bg:#EDE6D4; --surface:#FFFFFF; --surface-2:#F7F2E5; --ink:#20241F; --ink-dim:#5B6158;
+    --gold:#8F611A; --gold-bright:#B4812B; --line:#DED2B4;
+    --good:#2F6B45; --good-bg:#E4F0E3; --pending:#9C6412; --pending-bg:#F6E8CC; --danger:#A23B2A; --danger-bg:#F4E0D8;
+    --font-display:'Fraunces', Georgia, 'Times New Roman', serif;
+    --font-body:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#14110C; --surface:#1D1912; --surface-2:#241F16; --ink:#EDE7D8; --ink-dim:#A79C87;
+      --gold:#D4A23F; --gold-bright:#E8BE6E; --line:#352B1C;
+      --good:#6FBF7E; --good-bg:#1C2B1F; --pending:#E0A542; --pending-bg:#2E2515; --danger:#E2816A; --danger-bg:#2E1C16;
+      color-scheme:dark;
+    }
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%; margin:0;}
+  body{background:var(--bg); color:var(--ink); font-family:var(--font-body);
+    padding-left:max(16px, env(safe-area-inset-left,0px)); padding-right:max(16px, env(safe-area-inset-right,0px));}
+  .app{max-width:480px; margin:0 auto; display:flex; flex-direction:column; min-height:100%;}
+  [hidden]{display:none !important;}
+
+  .topbar{padding-top:max(14px, env(safe-area-inset-top,0px)); position:sticky; top:0; background:var(--bg); z-index:5;}
+  .brand{display:flex; align-items:baseline; gap:10px;}
+  .brand-mark{font-family:var(--font-display); font-weight:900; font-size:1.7rem; color:var(--gold); letter-spacing:0.01em;}
+  .brand-sub{font-size:0.72rem; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink-dim); font-weight:600;}
+  .tagline{font-size:0.75rem; color:var(--ink-dim); margin-top:2px; margin-bottom:12px; display:flex; align-items:center; gap:8px; justify-content:space-between;}
+  .net-pill{font-size:0.66rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; padding:3px 8px; border-radius:99px;}
+  .net-online{background:var(--good-bg); color:var(--good);}
+  .net-offline{background:var(--pending-bg); color:var(--pending);}
+  nav.tabs{display:flex; gap:4px; background:var(--surface-2); border:1px solid var(--line); border-radius:10px; padding:4px; margin-bottom:14px;}
+  nav.tabs button{flex:1; border:none; background:transparent; padding:8px 6px; border-radius:7px; font-family:var(--font-body); font-weight:600; font-size:0.82rem; color:var(--ink-dim); cursor:pointer;}
+  nav.tabs button[aria-selected="true"]{background:var(--surface); color:var(--ink); box-shadow:0 1px 2px rgba(0,0,0,0.08);}
+
+  main{flex:1; padding-bottom:40px;}
+  .screen{display:flex; flex-direction:column; gap:16px;}
+
+  h2.section-label{font-family:var(--font-display); font-weight:600; font-size:1.05rem; margin:0;}
+  .field{display:flex; flex-direction:column; gap:5px;}
+  .field label{font-size:0.78rem; font-weight:600; color:var(--ink-dim);}
+  input[type="text"], input[type="number"], input[type="url"], select{
+    font-family:var(--font-body); font-size:0.95rem; color:var(--ink); background:var(--surface);
+    border:1px solid var(--line); border-radius:8px; padding:9px 10px; width:100%;
+  }
+  input:focus, select:focus, button:focus-visible{outline:2px solid var(--gold-bright); outline-offset:1px;}
+  input[type="number"]{font-variant-numeric:tabular-nums;}
+
+  .line-item{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:10px;}
+  .line-item-row1{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  .line-item-row2{display:flex; align-items:center; gap:10px;}
+  .line-item-row2 .field{flex:1;}
+  .subtotal-box{text-align:right; min-width:0;}
+  .subtotal-box .amt{font-variant-numeric:tabular-nums; font-weight:700; font-size:1rem;}
+  .subtotal-box .lbl{font-size:0.68rem; color:var(--ink-dim); text-transform:uppercase; letter-spacing:0.06em;}
+  .remove-btn{background:none; border:none; color:var(--danger); font-size:1.1rem; line-height:1; cursor:pointer; padding:4px 6px;}
+
+  .add-line{border:1px dashed var(--line); background:transparent; color:var(--gold); font-family:var(--font-body); font-weight:600; font-size:0.88rem; border-radius:10px; padding:10px; cursor:pointer;}
+
+  .total-row{display:flex; justify-content:space-between; align-items:baseline; background:var(--surface-2); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin-top:4px;}
+  .total-row .lbl{font-family:var(--font-display); font-weight:600; font-size:1rem;}
+  .total-row .amt{font-family:var(--font-display); font-weight:900; font-size:1.6rem; color:var(--gold); font-variant-numeric:tabular-nums;}
+
+  .btn-primary{background:var(--gold); color:#fff; border:none; border-radius:10px; padding:13px; font-family:var(--font-body); font-weight:700; font-size:0.95rem; cursor:pointer; width:100%;}
+  .btn-primary:disabled{opacity:0.45; cursor:not-allowed;}
+  .btn-secondary{background:var(--surface); color:var(--ink); border:1px solid var(--line); border-radius:10px; padding:11px; font-family:var(--font-body); font-weight:600; font-size:0.88rem; cursor:pointer;}
+  .btn-danger{background:var(--danger-bg); color:var(--danger); border:1px solid var(--danger); border-radius:10px; padding:11px; font-family:var(--font-body); font-weight:700; font-size:0.88rem; cursor:pointer;}
+  .btn-row{display:flex; gap:8px;}
+  .btn-row > *{flex:1;}
+
+  .hist-row{display:flex; align-items:center; gap:10px; padding:12px 0; border-bottom:1px solid var(--line); cursor:pointer; background:none; border-left:none; border-right:none; border-top:none; width:100%; text-align:left; font-family:var(--font-body); color:var(--ink);}
+  .hist-row:last-child{border-bottom:none;}
+  .hist-main{flex:1; min-width:0;}
+  .hist-ref{font-size:0.9rem; font-weight:600;}
+  .hist-meta{font-size:0.76rem; color:var(--ink-dim); margin-top:1px;}
+  .hist-amt{text-align:right; font-variant-numeric:tabular-nums; font-weight:700;}
+  .badge{display:inline-block; font-size:0.66rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; padding:3px 7px; border-radius:99px; margin-top:4px;}
+  .badge-good{background:var(--good-bg); color:var(--good);}
+  .badge-pending{background:var(--pending-bg); color:var(--pending);}
+  .badge-sample{background:var(--surface-2); color:var(--ink-dim); border:1px solid var(--line);}
+  .empty-state{text-align:center; color:var(--ink-dim); padding:40px 10px; font-size:0.88rem;}
+  .sync-summary{font-size:0.8rem; color:var(--ink-dim);}
+
+  .help-text{font-size:0.78rem; color:var(--ink-dim); line-height:1.5;}
+  .danger-zone{border:1px solid var(--danger); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:8px; margin-top:6px;}
+  .danger-zone .field label{color:var(--danger);}
+  .toast{position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:var(--ink); color:var(--bg); padding:9px 16px; border-radius:99px; font-size:0.84rem; font-weight:600; opacity:0; pointer-events:none; transition:opacity 0.2s; z-index:50; max-width:90vw; text-align:center;}
+  .toast.show{opacity:1;}
+
+  .overlay{position:fixed; inset:0; background:rgba(20,17,12,0.55); z-index:20; display:flex; align-items:flex-end; justify-content:center;
+    padding-left:max(16px, env(safe-area-inset-left,0px)); padding-right:max(16px, env(safe-area-inset-right,0px)); padding-bottom:max(16px, env(safe-area-inset-bottom,0px));}
+  .receipt{background:var(--surface); border-radius:16px 16px 0 0; width:100%; max-width:480px; max-height:88vh; overflow-y:auto; padding:22px 20px calc(20px + env(safe-area-inset-bottom,0px));}
+  .receipt-check{width:52px; height:52px; border-radius:50%; background:var(--good-bg); color:var(--good); display:flex; align-items:center; justify-content:center; font-size:1.6rem; margin:0 auto 10px;}
+  .receipt-title{text-align:center; font-family:var(--font-display); font-weight:700; font-size:1.15rem; margin-bottom:2px;}
+  .receipt-ref{text-align:center; font-size:0.78rem; color:var(--ink-dim); margin-bottom:16px; font-variant-numeric:tabular-nums;}
+  .receipt-brand{text-align:center; margin-bottom:14px;}
+  .receipt-brand .brand-mark{font-size:1.3rem;}
+  .receipt-client{display:flex; justify-content:space-between; font-size:0.86rem; padding:6px 0; border-top:1px dashed var(--line); margin-top:4px;}
+  table.receipt-table{width:100%; border-collapse:collapse; margin-top:10px; font-size:0.84rem;}
+  table.receipt-table th{text-align:left; font-size:0.66rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-dim); padding-bottom:6px; border-bottom:1px solid var(--line); font-weight:600;}
+  table.receipt-table th:last-child, table.receipt-table td:last-child{text-align:right;}
+  table.receipt-table td{padding:7px 0; border-bottom:1px solid var(--line); font-variant-numeric:tabular-nums;}
+  .receipt-grand{display:flex; justify-content:space-between; align-items:baseline; margin-top:14px; padding-top:10px; border-top:2px solid var(--ink);}
+  .receipt-grand .lbl{font-family:var(--font-display); font-weight:600;}
+  .receipt-grand .amt{font-family:var(--font-display); font-weight:900; font-size:1.4rem; color:var(--gold); font-variant-numeric:tabular-nums;}
+  .receipt-footer{text-align:center; margin-top:18px; font-size:0.72rem; color:var(--ink-dim); letter-spacing:0.03em;}
+  .receipt-hint{text-align:center; font-size:0.74rem; color:var(--ink-dim); margin-top:4px; margin-bottom:14px;}
+  .receipt-actions{display:flex; gap:8px; margin-top:16px;}
+  .receipt-actions > *{flex:1;}
+
+  @media (max-width:360px){ .line-item-row1{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="brand">
+      <span class="brand-mark">CGS</span>
+      <span class="brand-sub">Cavite Gold Supplier</span>
+    </div>
+    <div class="tagline">
+      <span>Legit &middot; Fast &middot; Safe &mdash; Gold Ledger</span>
+      <span class="net-pill" id="netPill">Online</span>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button id="tabbtn-calc" role="tab" aria-selected="true">Calculator</button>
+      <button id="tabbtn-history" role="tab" aria-selected="false">History</button>
+      <button id="tabbtn-settings" role="tab" aria-selected="false">Settings</button>
+    </nav>
+  </div>
+
+  <main>
+    <section id="screen-calc" class="screen">
+      <h2 class="section-label">New Transaction</h2>
+      <div class="field">
+        <label for="clientName">Client Name (optional)</label>
+        <input type="text" id="clientName" placeholder="e.g. Maria Santos">
+      </div>
+
+      <div id="lineItems"></div>
+
+      <button class="add-line" id="addLineBtn" type="button">+ Add Karat</button>
+
+      <div class="total-row">
+        <span class="lbl">Total</span>
+        <span class="amt" id="grandTotal">&#8369;0.00</span>
+      </div>
+
+      <button class="btn-primary" id="saveBtn" type="button" disabled>Save &amp; Generate Receipt</button>
+    </section>
+
+    <section id="screen-history" class="screen" hidden>
+      <h2 class="section-label">Transaction History</h2>
+      <div class="sync-summary" id="syncSummary"></div>
+      <div class="btn-row">
+        <button class="btn-secondary" id="syncNowBtn" type="button">Sync Pending</button>
+        <button class="btn-secondary" id="exportCsvBtn" type="button">Export CSV</button>
+      </div>
+      <button class="btn-secondary" id="backupJsonBtn" type="button">Download Full Backup (JSON)</button>
+      <div id="historyList"></div>
+    </section>
+
+    <section id="screen-settings" class="screen" hidden>
+      <h2 class="section-label">About This App</h2>
+      <p class="help-text">This is installed as an app on your home screen, so it opens even with no signal &mdash; new transactions always save instantly on this device first. When you're back online, pending transactions sync to the "Transactions" tab of the CGS Google Sheet automatically, or tap "Sync Pending" from the History tab.</p>
+
+      <h2 class="section-label" style="margin-top:10px;">Reset</h2>
+      <p class="help-text">This device's saved transactions live only in this browser until they sync. Clearing data removes anything not yet synced &mdash; make sure "Sync Pending" shows 0 first.</p>
+      <div class="danger-zone">
+        <div class="field">
+          <label for="confirmClear">Type DELETE to enable</label>
+          <input type="text" id="confirmClear" placeholder="DELETE">
+        </div>
+        <button class="btn-danger" id="clearDataBtn" type="button" disabled>Clear All Local Data</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="overlay" id="receiptOverlay" hidden>
+  <div class="receipt" id="receiptBody"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  // Set by Claude after Jason provides the Apps Script Web App (/exec) URL.
+  // Until then, sync stays queued locally — saving/receipts/history/offline
+  // launch all work fully without it.
+  var SHEETS_WEBAPP_URL = "__SHEETS_WEBAPP_URL__";
+
+  var KARATS = ["24K","22K","21K","18K","14K","10K"];
+  var STORAGE_KEY = "cgs_transactions_v1";
+  var COUNTER_KEY = "cgs_counter_v1";
+
+  function safeGet(key, fallback){
+    try{ var v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
+    catch(e){ return fallback; }
+  }
+  function safeSet(key, value){
+    try{ localStorage.setItem(key, JSON.stringify(value)); return true; }
+    catch(e){ return false; }
+  }
+
+  function peso(n){
+    var v = isFinite(n) ? n : 0;
+    return "₱" + v.toLocaleString("en-PH", {minimumFractionDigits:2, maximumFractionDigits:2});
+  }
+
+  function pad(n){ return n < 10 ? "0"+n : ""+n; }
+  function formatDateTime(iso){
+    var d = new Date(iso);
+    var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    var h = d.getHours(); var ampm = h >= 12 ? "PM" : "AM"; var h12 = h % 12 || 12;
+    return months[d.getMonth()]+" "+d.getDate()+", "+d.getFullYear()+" · "+h12+":"+pad(d.getMinutes())+" "+ampm;
+  }
+
+  function nextRef(){
+    var counter = safeGet(COUNTER_KEY, 0) + 1;
+    safeSet(COUNTER_KEY, counter);
+    var d = new Date();
+    var ymd = (""+d.getFullYear()).slice(2) + pad(d.getMonth()+1) + pad(d.getDate());
+    return "CGS-" + ymd + "-" + (counter < 1000 ? ("000"+counter).slice(-4) : counter);
+  }
+
+  function sampleTransaction(){
+    return {
+      id: "CGS-SAMPLE-0001", createdAt: new Date().toISOString(), clientName: "Sample Transaction",
+      items: [
+        {karat:"18K", pricePerGram:3200, grams:5, subtotal:16000},
+        {karat:"24K", pricePerGram:4600, grams:2.3, subtotal:10580}
+      ],
+      total: 26580, synced:false, isSample:true
+    };
+  }
+
+  var txns = safeGet(STORAGE_KEY, null);
+  if (txns === null){ txns = [sampleTransaction()]; safeSet(STORAGE_KEY, txns); }
+
+  var tabs = ["calc","history","settings"];
+  function showTab(name){
+    tabs.forEach(function(t){
+      document.getElementById("screen-"+t).hidden = (t !== name);
+      document.getElementById("tabbtn-"+t).setAttribute("aria-selected", t === name ? "true" : "false");
+    });
+    if (name === "history") renderHistory();
+  }
+  tabs.forEach(function(t){
+    document.getElementById("tabbtn-"+t).addEventListener("click", function(){ showTab(t); });
+  });
+
+  var toastTimer = null;
+  function toast(msg){
+    var el = document.getElementById("toast");
+    el.textContent = msg;
+    el.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ el.classList.remove("show"); }, 2200);
+  }
+
+  function updateNetPill(){
+    var el = document.getElementById("netPill");
+    var online = navigator.onLine;
+    el.textContent = online ? "Online" : "Offline";
+    el.className = "net-pill " + (online ? "net-online" : "net-offline");
+  }
+  window.addEventListener("online", updateNetPill);
+  window.addEventListener("offline", updateNetPill);
+  updateNetPill();
+
+  var lineIdCounter = 0;
+  var lines = [];
+  function newLine(){
+    lineIdCounter++;
+    return {uid:lineIdCounter, karat:"24K", price:"", grams:""};
+  }
+  lines.push(newLine());
+
+  function lineSubtotal(line){
+    var p = parseFloat(line.price), g = parseFloat(line.grams);
+    if (!isFinite(p) || !isFinite(g) || p <= 0 || g <= 0) return 0;
+    return p * g;
+  }
+
+  function renderLines(){
+    var wrap = document.getElementById("lineItems");
+    wrap.innerHTML = "";
+    lines.forEach(function(line){
+      var row = document.createElement("div");
+      row.className = "line-item";
+
+      var row1 = document.createElement("div");
+      row1.className = "line-item-row1";
+
+      var karatField = document.createElement("div");
+      karatField.className = "field";
+      var karatLabel = document.createElement("label");
+      karatLabel.textContent = "Karat";
+      var karatSelect = document.createElement("select");
+      KARATS.forEach(function(k){
+        var opt = document.createElement("option");
+        opt.value = k; opt.textContent = k;
+        if (k === line.karat) opt.selected = true;
+        karatSelect.appendChild(opt);
+      });
+      karatSelect.addEventListener("change", function(){ line.karat = karatSelect.value; });
+      karatField.appendChild(karatLabel); karatField.appendChild(karatSelect);
+
+      var priceField = document.createElement("div");
+      priceField.className = "field";
+      var priceLabel = document.createElement("label");
+      priceLabel.textContent = "Price per gram (₱)";
+      var priceInput = document.createElement("input");
+      priceInput.type = "number"; priceInput.inputMode = "decimal"; priceInput.min = "0"; priceInput.step = "0.01";
+      priceInput.placeholder = "0.00"; priceInput.value = line.price;
+      priceInput.addEventListener("input", function(){ line.price = priceInput.value; updateTotals(); });
+      priceField.appendChild(priceLabel); priceField.appendChild(priceInput);
+
+      row1.appendChild(karatField); row1.appendChild(priceField);
+
+      var row2 = document.createElement("div");
+      row2.className = "line-item-row2";
+
+      var gramsField = document.createElement("div");
+      gramsField.className = "field";
+      var gramsLabel = document.createElement("label");
+      gramsLabel.textContent = "Grams";
+      var gramsInput = document.createElement("input");
+      gramsInput.type = "number"; gramsInput.inputMode = "decimal"; gramsInput.min = "0"; gramsInput.step = "0.01";
+      gramsInput.placeholder = "0.00"; gramsInput.value = line.grams;
+      gramsInput.addEventListener("input", function(){ line.grams = gramsInput.value; updateTotals(); });
+      gramsField.appendChild(gramsLabel); gramsField.appendChild(gramsInput);
+
+      var subtotalBox = document.createElement("div");
+      subtotalBox.className = "subtotal-box";
+      var subLbl = document.createElement("div"); subLbl.className = "lbl"; subLbl.textContent = "Subtotal";
+      var subAmt = document.createElement("div"); subAmt.className = "amt"; subAmt.textContent = peso(lineSubtotal(line));
+      subtotalBox.appendChild(subLbl); subtotalBox.appendChild(subAmt);
+
+      row2.appendChild(gramsField); row2.appendChild(subtotalBox);
+
+      if (lines.length > 1){
+        var removeBtn = document.createElement("button");
+        removeBtn.className = "remove-btn"; removeBtn.type = "button"; removeBtn.textContent = "✕";
+        removeBtn.setAttribute("aria-label", "Remove this karat line");
+        removeBtn.addEventListener("click", function(){
+          lines = lines.filter(function(l){ return l.uid !== line.uid; });
+          renderLines(); updateTotals();
+        });
+        row2.appendChild(removeBtn);
+      }
+
+      row.appendChild(row1); row.appendChild(row2);
+      wrap.appendChild(row);
+    });
+  }
+
+  function updateTotals(){
+    var wrap = document.getElementById("lineItems");
+    var rows = wrap.querySelectorAll(".line-item");
+    rows.forEach(function(rowEl, i){
+      var amtEl = rowEl.querySelector(".subtotal-box .amt");
+      if (amtEl) amtEl.textContent = peso(lineSubtotal(lines[i]));
+    });
+    var total = lines.reduce(function(sum, l){ return sum + lineSubtotal(l); }, 0);
+    document.getElementById("grandTotal").textContent = peso(total);
+    document.getElementById("saveBtn").disabled = total <= 0;
+  }
+
+  document.getElementById("addLineBtn").addEventListener("click", function(){
+    lines.push(newLine()); renderLines(); updateTotals();
+  });
+
+  document.getElementById("saveBtn").addEventListener("click", function(){
+    var validLines = lines.filter(function(l){ return lineSubtotal(l) > 0; });
+    if (validLines.length === 0) return;
+    var total = validLines.reduce(function(sum, l){ return sum + lineSubtotal(l); }, 0);
+    var txn = {
+      id: nextRef(),
+      createdAt: new Date().toISOString(),
+      clientName: document.getElementById("clientName").value.trim(),
+      items: validLines.map(function(l){
+        return {karat:l.karat, pricePerGram: parseFloat(l.price), grams: parseFloat(l.grams), subtotal: lineSubtotal(l)};
+      }),
+      total: total,
+      synced: false,
+      isSample: false
+    };
+    txns.unshift(txn);
+    safeSet(STORAGE_KEY, txns);
+    openReceipt(txn);
+
+    lines = [newLine()];
+    document.getElementById("clientName").value = "";
+    renderLines(); updateTotals();
+
+    trySync(txn);
+  });
+
+  function karatTableRows(txn){
+    return txn.items.map(function(it){
+      return "<tr><td>"+it.karat+"</td><td>"+it.grams.toLocaleString("en-PH",{maximumFractionDigits:2})+" g</td><td>"+peso(it.pricePerGram)+"</td><td>"+peso(it.subtotal)+"</td></tr>";
+    }).join("");
+  }
+
+  function escapeHtml(s){
+    return (s||"").replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; });
+  }
+
+  function openReceipt(txn){
+    var body = document.getElementById("receiptBody");
+    var statusBadge = txn.isSample
+      ? '<span class="badge badge-sample">EXAMPLE</span>'
+      : (txn.synced ? '<span class="badge badge-good">Synced</span>' : '<span class="badge badge-pending">Pending Sync</span>');
+    body.innerHTML =
+      '<div class="receipt-check">✓</div>'+
+      '<div class="receipt-title">Transaction Recorded</div>'+
+      '<div class="receipt-ref">'+txn.id+' · '+formatDateTime(txn.createdAt)+'</div>'+
+      '<div class="receipt-brand"><span class="brand-mark">CGS</span></div>'+
+      (txn.clientName ? '<div class="receipt-client"><span>Client</span><strong>'+escapeHtml(txn.clientName)+'</strong></div>' : '')+
+      '<table class="receipt-table"><thead><tr><th>Karat</th><th>Weight</th><th>Rate</th><th>Amount</th></tr></thead><tbody>'+karatTableRows(txn)+'</tbody></table>'+
+      '<div class="receipt-grand"><span class="lbl">Total</span><span class="amt">'+peso(txn.total)+'</span></div>'+
+      '<div style="text-align:center; margin-top:10px;">'+statusBadge+'</div>'+
+      '<div class="receipt-footer">Legit · Fast · Safe — Since 2022</div>'+
+      '<div class="receipt-hint">Screenshot this receipt to share with the client.</div>'+
+      '<div class="receipt-actions">'+
+        '<button class="btn-secondary" id="receiptCopyBtn" type="button">Copy Summary</button>'+
+        '<button class="btn-primary" id="receiptCloseBtn" type="button">Done</button>'+
+      '</div>';
+
+    document.getElementById("receiptOverlay").hidden = false;
+    document.getElementById("receiptCloseBtn").addEventListener("click", function(){
+      document.getElementById("receiptOverlay").hidden = true;
+    });
+    document.getElementById("receiptCopyBtn").addEventListener("click", function(){
+      var lines2 = [txn.id, formatDateTime(txn.createdAt)];
+      if (txn.clientName) lines2.push("Client: "+txn.clientName);
+      txn.items.forEach(function(it){ lines2.push(it.karat+" · "+it.grams+"g × "+peso(it.pricePerGram)+" = "+peso(it.subtotal)); });
+      lines2.push("Total: "+peso(txn.total));
+      var text = lines2.join("\n");
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(function(){ toast("Copied"); }).catch(function(){ toast("Couldn't copy — select text manually"); });
+      } else { toast("Copy not supported on this device"); }
+    });
+  }
+
+  function renderHistory(){
+    var list = document.getElementById("historyList");
+    var pending = txns.filter(function(t){ return !t.synced && !t.isSample; }).length;
+    var synced = txns.filter(function(t){ return t.synced && !t.isSample; }).length;
+    document.getElementById("syncSummary").textContent = pending + " pending · " + synced + " synced";
+
+    if (txns.length === 0){
+      list.innerHTML = '<div class="empty-state">No transactions yet. Save one from the Calculator tab.</div>';
+      return;
+    }
+    list.innerHTML = "";
+    txns.forEach(function(txn){
+      var row = document.createElement("button");
+      row.type = "button"; row.className = "hist-row";
+      var badge = txn.isSample ? '<span class="badge badge-sample">EXAMPLE</span>' : (txn.synced ? '<span class="badge badge-good">Synced</span>' : '<span class="badge badge-pending">Pending</span>');
+      row.innerHTML =
+        '<div class="hist-main"><div class="hist-ref">'+txn.id+(txn.clientName ? " · "+escapeHtml(txn.clientName) : "")+'</div>'+
+        '<div class="hist-meta">'+formatDateTime(txn.createdAt)+'</div>'+badge+'</div>'+
+        '<div class="hist-amt">'+peso(txn.total)+'</div>';
+      row.addEventListener("click", function(){ openReceipt(txn); });
+      list.appendChild(row);
+    });
+  }
+
+  // ---------- sync via fetch() to the Apps Script Web App /exec endpoint ----------
+  // Content-Type text/plain keeps this a CORS "simple request" (no preflight
+  // OPTIONS, which Apps Script doesn't handle) while still letting us read
+  // the JSON response back, since Apps Script Web Apps send permissive CORS
+  // headers on the actual response.
+  function trySync(txn){
+    if (txn.isSample) return Promise.resolve(false);
+    if (!SHEETS_WEBAPP_URL || SHEETS_WEBAPP_URL.indexOf("__SHEETS_WEBAPP_URL__") === 0) return Promise.resolve(false);
+    if (!navigator.onLine) return Promise.resolve(false);
+
+    return fetch(SHEETS_WEBAPP_URL, {
+      method: "POST",
+      headers: {"Content-Type": "text/plain;charset=utf-8"},
+      body: JSON.stringify(txn)
+    }).then(function(res){
+      if (!res.ok) throw new Error("bad status " + res.status);
+      return res.json();
+    }).then(function(json){
+      if (!json || !json.ok) throw new Error("server reported failure");
+      txn.synced = true; txn.syncedAt = new Date().toISOString();
+      safeSet(STORAGE_KEY, txns);
+      return true;
+    }).catch(function(){ return false; });
+  }
+
+  function syncAll(){
+    var pending = txns.filter(function(t){ return !t.synced && !t.isSample; });
+    if (pending.length === 0){ toast("Nothing to sync"); return; }
+    if (!SHEETS_WEBAPP_URL || SHEETS_WEBAPP_URL.indexOf("__SHEETS_WEBAPP_URL__") === 0){
+      toast("Sync not set up yet — ask Claude to finish wiring it");
+      return;
+    }
+    toast("Syncing "+pending.length+"...");
+    var chain = Promise.resolve();
+    var okCount = 0;
+    pending.forEach(function(txn){
+      chain = chain.then(function(){ return trySync(txn); }).then(function(ok){ if (ok) okCount++; });
+    });
+    chain.then(function(){
+      renderHistory();
+      toast(okCount === pending.length ? "Sync finished" : (okCount + " of " + pending.length + " synced — still offline?"));
+    });
+  }
+  document.getElementById("syncNowBtn").addEventListener("click", syncAll);
+  window.addEventListener("online", function(){ syncAll(); });
+
+  // ---------- export (plain browser download) ----------
+  function toCsv(){
+    var rows = [["Transaction ID","Date/Time","Client Name","Karat","Grams","Price per Gram","Subtotal","Transaction Total","Synced"]];
+    txns.filter(function(t){ return !t.isSample; }).forEach(function(t){
+      t.items.forEach(function(it){
+        rows.push([t.id, t.createdAt, t.clientName||"", it.karat, it.grams, it.pricePerGram, it.subtotal, t.total, t.synced ? "yes":"no"]);
+      });
+    });
+    return rows.map(function(r){
+      return r.map(function(cell){
+        var s = String(cell);
+        return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+      }).join(",");
+    }).join("\n");
+  }
+
+  function downloadFile(filename, content, mime){
+    var blob = new Blob([content], {type: mime});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+    toast("Saved "+filename);
+  }
+
+  document.getElementById("exportCsvBtn").addEventListener("click", function(){
+    downloadFile("cgs-transactions.csv", toCsv(), "text/csv");
+  });
+  document.getElementById("backupJsonBtn").addEventListener("click", function(){
+    downloadFile("cgs-transactions-backup.json", JSON.stringify(txns, null, 2), "application/json");
+  });
+
+  document.getElementById("confirmClear").addEventListener("input", function(e){
+    document.getElementById("clearDataBtn").disabled = e.target.value !== "DELETE";
+  });
+  document.getElementById("clearDataBtn").addEventListener("click", function(){
+    txns = [sampleTransaction()];
+    safeSet(STORAGE_KEY, txns);
+    safeSet(COUNTER_KEY, 0);
+    document.getElementById("confirmClear").value = "";
+    document.getElementById("clearDataBtn").disabled = true;
+    renderHistory();
+    toast("Local data cleared");
+  });
+
+  renderLines();
+  updateTotals();
+
+  // ---------- install as an app + offline launch ----------
+  if ("serviceWorker" in navigator){
+    window.addEventListener("load", function(){
+      navigator.serviceWorker.register("./sw.js").catch(function(){});
+    });
+  }
+})();
+</script>
+</body>
+</html>
